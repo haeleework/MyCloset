@@ -1,0 +1,7 @@
+{
+  "name": "closet-schema-verification",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node verify-local.mjs"},
+  "devDependencies": {"@electric-sql/pglite": "0.5.8"}
+}

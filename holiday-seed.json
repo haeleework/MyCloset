@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "years": {
+    "2026": {
+      "year": 2026,
+      "complete": false,
+      "source": "한국천문연구원 공개 달력자료 · 초기 저장본",
+      "sourceUrl": "https://astro.kasi.re.kr/kor/life/post/calendarData?search_year=2026",
+      "verifiedDate": "2026-10-07",
+      "fetchedAt": "2026-10-07T06:57:44.607201+00:00",
+      "note": "공개 자료에서 확인한 2026년 10월 이후 4개 날짜만 포함. 새 임시공휴일/다른 날짜 전체를 확인한 자료가 아님.",
+      "holidays": [
+        {
+          "date": "2026-10-03",
+          "name": "개천절"
+        },
+        {
+          "date": "2026-10-05",
+          "name": "대체공휴일(개천절)"
+        },
+        {
+          "date": "2026-10-09",
+          "name": "한글날"
+        },
+        {
+          "date": "2026-12-25",
+          "name": "기독탄신일"
+        }
+      ]
+    }
+  }
+}

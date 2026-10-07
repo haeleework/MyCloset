@@ -1,0 +1,32 @@
+# Private settings and credentials
+.env
+.env.*
+*.pem
+*.key
+# Dependencies and generated files
+node_modules/
+.venv/
+__pycache__/
+.vercel/
+coverage/
+.local-data/
+.cutout-cache/
+.weather-cache/
+.holiday-cache/
+.operation-logs/
+*.log
+*.jsonl
+local-verification.json
+# Local backups, personal data and workshop history
+private/
+saving-point*/
+backups/
+exports/
+uploads/
+.gemini*/
+*budget*.json
+frontend-review-*
+*-tests-*.txt
+작업일지.md
+.DS_Store
+Thumbs.db
