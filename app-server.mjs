@@ -14,7 +14,7 @@ const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application
 async function body(req,max=2000000){if(req.body!==undefined){const raw=Buffer.isBuffer(req.body)?req.body.toString('utf8'):typeof req.body==='string'?req.body:JSON.stringify(req.body);if(Buffer.byteLength(raw)>max)throw new Error('TOO_LARGE');return JSON.parse(raw);}let size=0,parts=[];for await(const part of req){size+=part.length;if(size>max)throw new Error('TOO_LARGE');parts.push(part);}return JSON.parse(Buffer.concat(parts).toString('utf8'));}
 const messages={NO_SAVED_FORECAST:'선택한 지역의 예보를 준비하고 있어요. 코디는 먼저 확인할 수 있어요.',STALE_FORECAST:'저장된 예보가 6시간 이상 지났어요. 새 자료를 준비하는 동안 날씨를 직접 확인해주세요.',KEY_REQUIRED:'기상청 인증키가 아직 설정되지 않았어요. .env 파일에 키를 넣고 저장해주세요.',KMA_KEY:'인증키 또는 해당 예보 서비스의 이용 권한을 확인해주세요.',KMA_CONNECTION:'새 예보를 가져오지 못했어요. 저장된 자료가 있으면 우선 사용합니다.',KMA_RESPONSE:'기상청 응답을 확인하지 못했어요. 날씨를 직접 확인해주세요.',NO_FORECAST:'저장된 발표 자료에 오늘 시간의 예보가 없어요. 날씨를 직접 확인해주세요.',TOO_LARGE:'파일이 너무 커요. 파일 크기를 확인해주세요.'};
 const validIds=ids=>Array.isArray(ids)&&ids.length>0&&ids.length<=8&&ids.every(id=>places.some(p=>p.id===id));
-export function createAppServer({root,store,readConfig,settings,kick,vision,cutouts,budget,recommendations=null,repository=null,observations=null,journal=null,holidays=null,holidayKick=()=>{},allowedHosts=[],productionOrigins=null,now=()=>new Date()}){
+export function createAppServer({root,store,readConfig,settings,kick,vision,cutouts,budget,recommendations=null,repository=null,observations=null,journal=null,holidays=null,holidayKick=()=>{},allowedHosts=[],productionOrigins=null,authorizeProcessing=null,now=()=>new Date()}){
  const traces=createTraceStore(20,journal);
  const knownRoutes=new Set(['/api/recommendations','/api/wardrobe','/api/garment-analysis','/api/photo-cutout','/api/weather','/api/weather-regions','/api/config','/api/gemini-budget','/api/analysis-trace','/api/client-events','/api/log-health','/api/holidays','/api/holiday-refresh']);
  let clientWindow=Date.now(),clientCount=0;
@@ -34,6 +34,9 @@ export function createAppServer({root,store,readConfig,settings,kick,vision,cuto
    const url=new URL(req.url,origin);
    if(req.method==='POST'){
     if(req.headers.origin!==origin||!req.headers['content-type']?.startsWith('application/json')){json(res,403,{error:'이 앱 화면에서 다시 시도해주세요.'});return;}
+    if(authorizeProcessing&&['/api/garment-analysis','/api/photo-cutout'].includes(url.pathname)){
+     try{await authorizeProcessing(req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):null);}catch{json(res,401,{code:'AUTH_REQUIRED',error:'저장 공간 연결을 확인한 뒤 다시 시도해주세요.'});return;}
+    }
     if(url.pathname==='/api/recommendations'){
      if(!recommendations){json(res,503,{code:'RECOMMENDATIONS_UNAVAILABLE',error:'추천 서버가 준비되지 않았어요.'});return;}
      try{const input=await body(req,2000000);const accessToken=req.headers.authorization?.startsWith('Bearer ')?req.headers.authorization.slice(7):null;const result=await recommendations.recommend(input,{accessToken});json(res,200,result);}

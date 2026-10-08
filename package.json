@@ -1,7 +1,7 @@
 {
   "name": "closet-agent-mvp",
   "private": true,
-  "version": "0.26.0",
+  "version": "0.27.0",
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
@@ -9,7 +9,7 @@
     "test": "node --import ./backend-network-guard.mjs --test",
     "build:static": "node build-static.mjs",
     "check:deployment": "node deployment-readiness.mjs",
-    "build": "node build-static.mjs"
+    "build": "node prepare-cutout-build.mjs && node build-static.mjs"
   },
   "overrides": {
     "sharp": "0.35.5",

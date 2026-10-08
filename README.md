@@ -1,4 +1,4 @@
-> 2026-10-08 · v26 배포 대상: Supabase 전체 수동 저장/복원, 날씨 필터와 색·편안함 추천, 사용자/개발자 화면. Vercel은 서울 지역 요청 처리 함수와 공용 날씨 임시 저장소를 사용합니다. 날씨는 화면 요청 시 최신 발표분을 수집하고 추천 계산은 저장된 예보만 읽습니다. 배포본의 Gemini 실제 호출과 배경 제거는 비활성입니다. 촬영용 로컬의 Gemini·날씨 활성 상태와 자료는 유지합니다. 정식 계정/기기 간 복구는 후속 범위입니다.
+> 2026-10-08 · v27: Vercel 옷 추가에서 Gemini 사진 분석과 선택적 배경 제거를 연결했습니다. 원본은 보관하고 처리용 사본은 긴 변 1,600px·2.5MB 이하로 변환합니다. 로컬·배포본의 사진/텍스트 호출은 Supabase의 같은 5,000원 추정 예산을 사용합니다. Supabase 전체 수동 저장/복원, 날씨·추천 정책과 사용자/개발자 화면은 유지합니다. 정식 계정·기기 간 복구는 후속 범위입니다.
 
 # 오늘의 옷장 · ClosetAgent
 
@@ -35,7 +35,7 @@ npm start
 | SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY | 프로젝트 주소 / 공개용 키. 관리자 키는 넣지 않음 |
 | CLOSET_ENABLE_OBSERVATIONS | 1이면 관측 온습도 연결 활성화 |
 | CLOSET_ENABLE_GEMINI / GEMINI_API_KEY | 유료 호출을 명시적으로 활성화할 때 1 / 비밀 인증값 |
-| CLOSET_BUDGET_DIR | Gemini를 켤 때 필수. 기존 비용 기록 폴더를 연결하고 누적 금액을 초기화하지 않음 |
+| CLOSET_BUDGET_DIR | 공동 API가 없는 로컬에서만 사용. 이미 이전한 원장을 새 예산으로 재사용하지 않음 |
 
 CLOSET_TEST_MODE는 모든 외부 통신을 막는 설정이 아닙니다. 자동 검사에서는 별도의 네트워크 차단 도구를 사용합니다. 프로그램 설정값을 외부로 공개하지 마세요.
 
@@ -61,3 +61,5 @@ CLOSET_TEST_MODE는 모든 외부 통신을 막는 설정이 아닙니다. 자�
 **이 폴더의 내용만 저장소 최상위로 사용합니다.** 바깥 워크샵 폴더 전체를 업로드하지 않습니다. 구버전·작업일지·조사 자료·저장 지점·개인 사진·실제 계정 자료·비밀 설정은 포함하지 않았습니다. fixtures의 작은 사진은 EXIF 검사에 쓰는 합성 회색 이미지입니다.
 
 .gitignore는 비밀 설정, 설치 패키지, 캐시, 로그, 개인 백업, 검사 결과를 제외합니다. 웹사이트에서 파일을 직접 끌어 올리는 방식은 이 규칙을 자동으로 적용하지 않을 수 있으므로 Git이 표시하는 변경 목록을 확인하고 업로드합니다. 제외 파일을 강제로 추가하지 않습니다. GitHub 저장소는 [haeleework/MyCloset](https://github.com/haeleework/MyCloset)입니다. Vercel 프로젝트 haelee/mycloset과 main 자동 배포 연결을 완료했습니다. 공개 주소는 https://mycloset-fawn.vercel.app 입니다.
+
+공동 비용 연결: `CLOSET_BUDGET_API_URL`, `CLOSET_BUDGET_API_TOKEN`을 서버 설정으로 사용합니다. Vercel에는 `GEMINI_API_KEY`, `CLOSET_ENABLE_GEMINI=1`도 필요합니다. 실제 비밀값은 Git에 넣지 않습니다.

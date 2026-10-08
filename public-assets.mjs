@@ -1,6 +1,6 @@
 // Only these files may be served or copied into a public static bundle.
 export const publicAssets=Object.freeze([
- 'index.html','app.js','client-log.js','vision-format.js','engine.js','outfit-comfort.js',
+ 'photo-upload.js','index.html','app.js','client-log.js','vision-format.js','engine.js','outfit-comfort.js',
  'conditions.js','learning.js','persona.js','onboarding.js','user-settings.js','style-taxonomy.js',
  'survey-picker.js','garment-fields.js','region-chooser.js','region-data.js','region-data.json',
  'holidays.js','styles.css','favicon.svg','node_modules/exifr/dist/full.umd.js',

@@ -4,8 +4,35 @@
   "buildCommand": "npm run build",
   "installCommand": "npm ci --ignore-scripts",
   "outputDirectory": "dist",
-  "regions": ["icn1"],
-  "functions": {"api/app.mjs": {"maxDuration": 60}},
-  "rewrites": [{"source": "/api/:path*", "destination": "/api/app"}],
-  "headers": [{"source": "/(.*)", "headers": [{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"}]}]
+  "regions": [
+    "icn1"
+  ],
+  "functions": {
+    "api/app.mjs": {
+      "maxDuration": 120,
+      "includeFiles": "node_modules/@imgly/background-removal-node/dist/**",
+      "excludeFiles": "node_modules/onnxruntime-node/bin/napi-v3/{darwin,win32,linux/arm64}/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/app"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
 }
