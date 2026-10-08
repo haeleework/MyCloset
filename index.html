@@ -52,10 +52,10 @@
 <div class="photo-buttons"><label class="secondary photo-choice">사진 선택 · 여러 장<input id="photoInput" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif"></label><label class="secondary photo-choice">사진 찍기<input id="cameraInput" type="file" accept="image/*" capture="environment"></label></div>
 <p id="photoQueueStatus" class="queue-status" role="status"></p><div id="photoPreview"></div><p id="photoMetadata" class="small-text" aria-live="polite"></p>
 <div class="cutout-actions"><button id="removePhotoBackground" type="button" class="secondary" disabled>배경 제거하기</button><button id="cancelCutout" type="button" class="text-button" hidden>배경 제거 취소</button></div>
-<p class="small-text">배경 제거는 이 PC에서 처리하고 결과를 저장해 다시 사용해요.</p>
-<p id="cutoutStatus" role="status" aria-live="polite" class="small-text">배경 제거는 Gemini 사용량과 별개예요. 옷의 모양은 그대로 유지해요.</p>
+<p class="small-text">배경 제거는 앱 서버에서 처리해요. 원본 사진도 함께 보관해요.</p>
+<p id="cutoutStatus" role="status" aria-live="polite" class="small-text">배경 제거는 Gemini 사용량과 별개예요. 결과를 확인한 뒤 원본과 제거본 중 골라주세요.</p>
 <div id="photoViewControls" class="photo-view-controls" hidden><button id="showOriginalPhoto" type="button" class="secondary">원본 보기</button><button id="showCutoutPhoto" type="button" class="secondary">배경 없는 사진 보기</button><button id="discardCutout" type="button" class="text-button">원본으로 등록하기</button></div>
-<p class="small-text">원본 사진 한 개를 Google Gemini로 보내 분석해요. 배경 제거본은 옷장 표시용이에요. JPEG·PNG·WebP는 10MB까지 분석할 수 있어요. HEIC는 원본 저장과 직접 입력을 지원해요.</p>
+<p class="small-text">선택한 사진의 분석용 사본을 Google Gemini로 보내 분석해요. 배경 제거본은 옷장 표시용이에요. JPEG·PNG·WebP는 10MB까지 분석할 수 있어요. HEIC는 원본 저장과 직접 입력을 지원해요.</p>
 <div class="analysis-actions"><button id="analyzePhoto" type="button" class="primary" disabled>사진 분석하기</button><button id="cancelAnalysis" type="button" class="secondary" hidden>분석 취소</button></div>
 <p id="geminiBudgetStatus" class="small-text" role="status">테스트 비용 기록을 확인하고 있어요.</p>
 <p class="small-text">이 앱의 테스트 예상 비용은 최대 5,000원으로 제한해요. Google 실제 잔액과 별개이며 다른 프로그램의 사용은 포함하지 않아요.</p>
