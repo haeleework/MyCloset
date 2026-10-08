@@ -18,18 +18,18 @@ import {createGeminiRecommender} from './recommendation-gemini.mjs';
 import {createSupabaseWardrobeRepository} from './wardrobe-repository.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url)),port=Number(process.env.PORT||4331);
 // New development servers are offline for Gemini, even when an older .env has a key.
-const geminiEnabled=process.env.CLOSET_ENABLE_GEMINI==='1'&&process.env.CLOSET_TEST_MODE!=='1';
+const geminiEnabled=process.env.CLOSET_ENABLE_GEMINI==='1'&&process.env.CLOSET_TEST_MODE!=='1'; // Explicit live-demo opt-in; tests remain offline.
 const backgroundEnabled=process.env.CLOSET_TEST_MODE!=='1';
-const journal=createOperationLog(path.join(root,'.operation-logs'),{version:'0.24.0'});
+const journal=createOperationLog(path.join(root,'.operation-logs'),{version:'0.25.0'});
 process.on('uncaughtExceptionMonitor',(error,origin)=>journal.emergency('process_fatal',{...safeError(error),origin}));
-journal.event('server_starting',{version:'0.24.0'});
+journal.event('server_starting',{version:'0.25.0'});
 const listenHost=process.env.CLOSET_LISTEN_HOST==='0.0.0.0'?'0.0.0.0':'127.0.0.1';
 const lanAddresses=Object.values(networkInterfaces()).flat().filter(i=>i?.family==='IPv4'&&!i.internal&&/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(i.address)).map(i=>i.address);
 const envPath=process.env.CLOSET_ENV_FILE||path.join(root,'.env');
 let config={};
 async function readConfig(){try{config=parseEnv(await readFile(envPath,'utf8'));}catch(error){config={};journal.event('config_read_failed',safeError(error));}}
 const key=()=>config.KMA_SERVICE_KEY||process.env.KMA_SERVICE_KEY||'';
-const settings=()=>({provider:config.KMA_PROVIDER||process.env.KMA_PROVIDER||'data',keyPresent:!!key(),geminiKeyPresent:geminiEnabled&&!!(config.GEMINI_API_KEY||process.env.GEMINI_API_KEY),recommendationMode:process.env.CLOSET_STORAGE_MODE||'local',supabaseUrl:process.env.SUPABASE_URL||config.SUPABASE_URL||null,geminiEnabled});
+const settings=()=>({provider:config.KMA_PROVIDER||process.env.KMA_PROVIDER||'data',keyPresent:!!key(),geminiKeyPresent:geminiEnabled&&!!(config.GEMINI_API_KEY||process.env.GEMINI_API_KEY),recommendationMode:process.env.CLOSET_STORAGE_MODE||'local',supabaseUrl:process.env.SUPABASE_URL||config.SUPABASE_URL||null,supabaseAuthMode:process.env.CLOSET_AUTH_MODE==='demo'?'demo':'account',supabasePublishableKey:process.env.SUPABASE_PUBLISHABLE_KEY||config.SUPABASE_PUBLISHABLE_KEY||null,geminiEnabled});
 const store=new ForecastStore(path.join(root,'.weather-cache'),async(place,options)=>collectForecast(place,key(),options));
 const worker=new ForecastWorker(store,async()=>{await readConfig();return settings();},{journal});
 if(geminiEnabled&&!process.env.CLOSET_BUDGET_DIR?.trim())throw new Error('Gemini 활성화 전 CLOSET_BUDGET_DIR에 기존 비용 기록 폴더를 지정해주세요.');
@@ -39,8 +39,10 @@ const getGeminiKey=async()=>{await readConfig();return config.GEMINI_API_KEY||pr
 const vision=geminiEnabled?createVisionService({budget,getKey:getGeminiKey}):null;
 await readConfig();
 const storageMode=process.env.CLOSET_STORAGE_MODE==='supabase'?'supabase':'local';
-const repository=storageMode==='supabase'?createSupabaseWardrobeRepository({enabled:true,url:process.env.SUPABASE_URL||config.SUPABASE_URL,publishableKey:process.env.SUPABASE_PUBLISHABLE_KEY||config.SUPABASE_PUBLISHABLE_KEY}):null;
-const recommendations=createRecommendationService({mode:storageMode,repository,weatherProvider:createSavedWeatherProvider({store,readConfig,settings}),gemini:createGeminiRecommender({enabled:geminiEnabled,allowNetwork:geminiEnabled,budget,getKey:getGeminiKey})});
+const repository=storageMode==='supabase'?createSupabaseWardrobeRepository({enabled:true,allowAnonymous:process.env.CLOSET_AUTH_MODE==='demo',url:process.env.SUPABASE_URL||config.SUPABASE_URL,publishableKey:process.env.SUPABASE_PUBLISHABLE_KEY||config.SUPABASE_PUBLISHABLE_KEY}):null;
+// Optional cloud backup must not require uploading a new garment before recommending it.
+const recommendationMode=process.env.CLOSET_RECOMMENDATION_MODE==='local'?'local':storageMode;
+const recommendations=createRecommendationService({mode:recommendationMode,repository,weatherProvider:createSavedWeatherProvider({store,readConfig,settings}),gemini:createGeminiRecommender({enabled:geminiEnabled,allowNetwork:geminiEnabled,budget,getKey:getGeminiKey})});
 const observations=backgroundEnabled&&process.env.CLOSET_ENABLE_OBSERVATIONS==='1'?createObservationProvider({fetchObservation:async({place})=>{await readConfig();return collectObservation(place,key(),{provider:settings().provider});}}):null;
 const cutouts=createCutoutService({cacheDir:path.join(root,'.cutout-cache')});
 const holidays=new HolidayStore(path.join(root,'.holiday-cache'),{journal,seedFile:path.join(root,'holiday-seed.json')});

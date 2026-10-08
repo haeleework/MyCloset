@@ -16,7 +16,7 @@ import {needsSetup,setupResult} from './onboarding.js';
 import {createRecommendationController,recommendationToOutfit,recommendationWardrobe} from './frontend-recommendations.js';
 import {renderRecommendationDiagnostics} from './frontend-diagnostics.js';
 import {renderGarmentConfirmationFields,populateGarmentConfirmationFields,readGarmentConfirmationFields} from './frontend-garment-fields.js';
-import {createCloudWardrobeController,renderCloudWardrobePanel,mergeCloudWardrobe} from './frontend-storage.js';
+import {createCloudWardrobeController,renderCloudWardrobePanel} from './frontend-storage.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const colors={'검정':'#303431','흰색':'#f0eee3','회색':'#979e98','베이지':'#c6b99a','남색':'#374657','파랑':'#7495b2','초록':'#768772','갈색':'#8a6d57','분홍':'#c8a0a2','빨강':'#a4554f','노랑':'#d0b96b','보라':'#8e7b9c','혼합':'#929381'};
 const categories={top:'상의',bottom:'하의',outer:'겉옷',shoe:'신발',dress:'원피스'};
@@ -30,12 +30,16 @@ function updateGarmentCategory(){
  surveyPicker.refresh();
 }
 $('#garmentForm select[name="category"]').addEventListener('change',updateGarmentCategory);
+let localMutation=0;
 let db,state,mode='real',tab='today',modifier='',skip=0,currentOutfit=null,editingId=null,draftPhoto=null,draftCapture=null,draftReady=true;
 let photoQueue=[],photoIndex=0,savingGarment=false;
 function garmentId(){if(crypto.randomUUID)return crypto.randomUUID();const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,v=>v.toString(16).padStart(2,'0')).join('');return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20)].join('-');}
 let comfortReferenceIds=[];
 let developerMode=false,recommendationData=null,recommendationKey='',recommendationEpoch=0,recommendationBusy=false,recommendationPending=null,wardrobeVersion=0,wardrobeFingerprint='',recommendationStateFingerprint='',modeSwitchBusy=false;
-const cloudController=createCloudWardrobeController({isDemo:()=>mode==='demo',onState:value=>{$('#cloudConnection').innerHTML=renderCloudWardrobePanel(value);}});
+let cloudUiEnabled=false;
+function renderCloudConnection(value){$('#cloudConnection').innerHTML=cloudUiEnabled?renderCloudWardrobePanel(value):'<p>이 데모는 로그인 없이 사용합니다. 옷과 설정은 현재 브라우저에 저장됩니다.</p>'; }
+let demoSessionStore=null;try{demoSessionStore=window.localStorage;}catch{}
+const cloudController=createCloudWardrobeController({demoSessionStore,isDemo:()=>mode==='demo',onState:renderCloudConnection});
 function recommendationStateKey(){return JSON.stringify({mode,wardrobe:recommendationWardrobe(state.closet),profile:state.profile,context:ctx(),weather:activeWeather()});}
 const recommendationController=createRecommendationController({getCurrentSnapshot:()=>({wardrobeRevision:currentWardrobeRevision(),wardrobe:state.closet}),getAccessToken:()=>cloudController.getAccessToken()});
 function currentWardrobeRevision(){const fingerprint=mode+JSON.stringify(recommendationWardrobe(state.closet));if(fingerprint!==wardrobeFingerprint){wardrobeFingerprint=fingerprint;wardrobeVersion++;}return `${mode}:${wardrobeVersion}`;}
@@ -46,22 +50,31 @@ $('#retryRecommendation').addEventListener('click',()=>{clearRecommendation();re
 $('#cloudConnection').addEventListener('submit',async event=>{
  const form=event.target.closest('[data-cloud-form]');if(!form)return;event.preventDefault();
  try{if(form.dataset.cloudForm==='config'){const input={url:form.elements.url.value.trim(),publishableKey:form.elements.publishableKey.value.trim()};form.elements.publishableKey.value='';cloudController.configure(input);}
- else{const input={email:form.elements.email.value,password:form.elements.password.value};form.elements.password.value='';await cloudController.login(input);}
+ else{const input={email:form.elements.email.value,password:form.elements.password.value};form.elements.password.value='';if(event.submitter?.hasAttribute('data-cloud-signup'))await cloudController.signup(input);else await cloudController.login(input);}
  clearRecommendation();renderToday();}catch(error){toast(error.message);}
 });
 $('#cloudConnection').addEventListener('click',async event=>{
  const button=event.target.closest('[data-cloud-action]');if(!button)return;
- const targetState=state,targetMode=mode;
+ const targetState=state,targetMode=mode,targetMutation=localMutation;
  try{
   if(button.dataset.cloudAction==='logout'){await cloudController.logout();clearRecommendation();renderToday();}
-  if(button.dataset.cloudAction==='upload'){const consent=$('#cloudConnection [data-cloud-consent]')?.checked===true;await cloudController.upload(state.closet,{confirmUpload:consent});if(state!==targetState||mode!==targetMode)return;clearRecommendation();renderToday();toast('사진을 제외한 옷 정보를 계정에 저장했어요.');}
-  if(button.dataset.cloudAction==='load'){const remote=await cloudController.load();if(state!==targetState||mode!==targetMode)return;const previous=state.closet,merged=mergeCloudWardrobe(previous,remote);state.closet=merged.wardrobe;if(await save()){render();toast('새 옷 '+merged.addedCount+'개를 가져왔어요. 기존 옷과 사진은 유지했어요.');}else{state.closet=previous;render();}}
+  if(button.dataset.cloudAction==='connect-demo')await cloudController.connectDemo();
+  if(button.dataset.cloudAction==='inspect')await cloudController.inspect();
+  if(button.dataset.cloudAction==='upload'){const consent=$('#cloudConnection [data-cloud-consent]')?.checked===true;await cloudController.saveState(structuredClone(state),{confirmUpload:consent});if(state!==targetState||mode!==targetMode)return;clearRecommendation();renderToday();toast(localMutation===targetMutation?'사진과 옷장·생활·기록을 계정에 저장했어요.':'전송 중 바뀐 기기 자료가 있어요. 전체 저장을 한 번 더 눌러주세요.');}
+  if(button.dataset.cloudAction==='load'){
+   if(!confirm('클라우드 자료를 가져올까요? 현재 기기 자료는 별도로 백업한 뒤 바뀝니다.'))return;
+   const remote=await cloudController.restoreState();if(state!==targetState||mode!==targetMode||localMutation!==targetMutation){toast('가져오는 동안 기기 자료가 바뀌어 적용하지 않았어요. 다시 시도해주세요.');return;}
+   const backupKey='before-cloud-import:'+garmentId();await writeState(backupKey,structuredClone(state));await writeState('last-cloud-import-backup-key',backupKey);
+   const restored=normalizeState(remote);await writeState('real',restored);state=restored;localMutation++;clearRecommendation();render();toast('사진과 옷장·생활·착용 기록을 가져왔어요.');
+  }
  }catch(error){toast(error.message);}
 });
+$('#restoreLocalBackup').addEventListener('click',async()=>{try{if(mode==='demo'){toast('내 옷장으로 돌아와서 복원해주세요.');return;}if(cloudController.getState().busy){toast('진행 중인 연결이 끝난 뒤 복원해주세요.');return;}const key=await readState('last-cloud-import-backup-key'),backup=key?await readState(key):null;if(!backup){toast('이 브라우저에는 가져오기 전 백업이 없어요.');return;}if(!confirm('가져오기 전 기기 자료를 복원할까요? 현재 자료도 별도 백업합니다.'))return;await writeState('before-local-restore:'+garmentId(),structuredClone(state));const restored=normalizeState(backup);await writeState('real',restored);state=restored;localMutation++;clearRecommendation();render();toast('기기 자료를 복원했어요. 클라우드 자료는 바뀌지 않았어요.');}catch{toast('복원하지 못했어요. 기존 자료는 유지합니다.');}});
 let draftVision=null,draftRevision=0,analysisController=null,analysisTimer=null,lastAIValues=null;
 const editedAnalysisFields=new Set();
 for(const event of ['input','change'])$('#garmentForm').addEventListener(event,e=>{if(e.target.name)editedAnalysisFields.add(e.target.name);});
 let geminiBudgetReady=false;
+async function configureCloudFromServer(){cloudUiEnabled=apiConfig?.supabase?.enabled===true;$$('[data-tab="cloud"]').forEach(button=>button.hidden=!cloudUiEnabled);renderCloudConnection(cloudController.getState());if(mode!=='demo'&&apiConfig?.supabase?.enabled&&apiConfig.supabase.publishableKey&&!cloudController.getState().configured){cloudController.configure({url:apiConfig.supabase.url,publishableKey:apiConfig.supabase.publishableKey,authMode:apiConfig.supabase.authMode});if(apiConfig.supabase.authMode==='demo')try{await cloudController.connectDemo();}catch(error){toast(error.message);}}}
 async function refreshGeminiBudget(){
  try{const r=await fetch('/api/gemini-budget',{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error();const b=await r.json();geminiBudgetReady=b.canRequest;$('#geminiBudgetStatus').textContent='테스트 예상 누적 비용: 약 '+Math.ceil(b.estimatedUsedWon).toLocaleString('ko-KR')+'원 / '+b.capWon.toLocaleString('ko-KR')+'원'+(b.uncertainAttempts?' · 비용 확인 대기 '+b.uncertainAttempts+'건':'')+(b.canRequest?'':' · 추가 분석 중단');}
  catch{geminiBudgetReady=false;$('#geminiBudgetStatus').textContent='테스트 비용 기록을 확인하지 못해 분석을 잠시 중단했어요.';}
@@ -74,7 +87,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function openDB(){operationLog.event('storage_open_started');return new Promise((resolve,reject)=>{const r=indexedDB.open('closet-agent-preview-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('states');r.onsuccess=()=>{operationLog.event('storage_open_finished');resolve(r.result);};r.onerror=()=>{operationLog.event('storage_open_failed',{errorName:r.error?.name});reject(r.error);};});}
 function readState(key){operationLog.event('storage_read_started');return new Promise((resolve,reject)=>{const tx=db.transaction('states');const r=tx.objectStore('states').get(key);r.onsuccess=()=>{operationLog.event('storage_read_finished');resolve(r.result);};r.onerror=()=>{operationLog.event('storage_read_failed',{errorName:r.error?.name});reject(r.error);};});}
 function writeState(key,value){operationLog.event('storage_write_started');return new Promise((resolve,reject)=>{const tx=db.transaction('states','readwrite');tx.objectStore('states').put(value,key);tx.oncomplete=()=>{operationLog.event('storage_write_finished');resolve();};tx.onerror=()=>{operationLog.event('storage_write_failed',{errorName:tx.error?.name});reject(tx.error);};tx.onabort=()=>{operationLog.event('storage_write_failed',{errorName:tx.error?.name});reject(tx.error);};});}
-async function save(){if(wardrobeFingerprint&&wardrobeFingerprint!==mode+JSON.stringify(recommendationWardrobe(state.closet))){modifier='';skip=0;comfortReferenceIds=[];}if(recommendationStateFingerprint&&recommendationStateFingerprint!==recommendationStateKey())clearRecommendation();const clock=performance.now();operationLog.event('storage_started',{source:mode,count:state.closet.length});try{await writeState(mode==='demo'?'mvp-demo-v1':'real',state);operationLog.event('storage_finished',{elapsedMs:performance.now()-clock});return true;}catch(error){operationLog.event('storage_failed',{errorName:error.name,elapsedMs:performance.now()-clock});toast('저장 공간에 기록하지 못했어요. 사진 크기나 브라우저 저장 설정을 확인해 주세요.');return false;}}
+async function save(){if(wardrobeFingerprint&&wardrobeFingerprint!==mode+JSON.stringify(recommendationWardrobe(state.closet))){modifier='';skip=0;comfortReferenceIds=[];}if(recommendationStateFingerprint&&recommendationStateFingerprint!==recommendationStateKey())clearRecommendation();const clock=performance.now();operationLog.event('storage_started',{source:mode,count:state.closet.length});try{await writeState(mode==='demo'?'mvp-demo-v1':'real',state);localMutation++;operationLog.event('storage_finished',{elapsedMs:performance.now()-clock});return true;}catch(error){operationLog.event('storage_failed',{errorName:error.name,elapsedMs:performance.now()-clock});toast('저장 공간에 기록하지 못했어요. 사진 크기나 브라우저 저장 설정을 확인해 주세요.');return false;}}
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4300);}
 function activeWeather(){return selectedWeather(state,todayKey());}
 function recommendationWeather(){
@@ -87,7 +100,7 @@ function icon(category,color){const fill=colors[color]||'#929381';const paths={t
 function visual(item){let art=icon(item.category,item.color);if(item.cutout?.photo||item.photo){const url=URL.createObjectURL(item.cutout?.photo||item.photo);urlCache.push(url);art=`<img src="${url}" alt="${esc(item.name)} 사진" onerror="this.hidden=true">`;}return `<div class="garment-visual ${item.cutout?.photo?'has-cutout':''}">${art}<span class="category-badge">${item.candidate?'구매 후보':esc(categories[item.category])}</span></div>`;}
 function itemCard(item){return `<div>${visual(item)}<p class="garment-name">${esc(item.name)}${item.candidate?' <span class="purchase-candidate">구매 후보</span>':''}</p><p class="garment-info">${esc(item.colorDescription||displayColor(item.color))} · ${esc(sizeCaption(item))}</p></div>`;}
 function resetURLs(){for(const u of urlCache)URL.revokeObjectURL(u);urlCache=[];}
-function showTab(next){if(needsSetup(state,mode))next='setup';if(!['today','closet','profile','purchase','setup'].includes(next))next='today';tab=next;operationLog.event('screen_opened',{source:next});document.body.classList.toggle('setup-active',next==='setup');if(next==='setup')fillSetup();history.replaceState(null,'','#'+next);$$('.view').forEach(v=>v.hidden=v.id!==next);$$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===next));if(next==='profile'){fillProfile();renderMemory();}if(next==='closet')renderCloset();window.scrollTo({top:0,behavior:'smooth'});}
+function showTab(next){if(next==='cloud'&&!cloudUiEnabled)next='today';if(needsSetup(state,mode)&&next!=='cloud')next='setup';if(!['today','closet','profile','purchase','setup','cloud'].includes(next))next='today';tab=next;operationLog.event('screen_opened',{source:next});document.body.classList.toggle('setup-active',next==='setup');if(next==='setup')fillSetup();history.replaceState(null,'','#'+next);$$('.view').forEach(v=>v.hidden=v.id!==next);$$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===next));if(next==='profile'){fillProfile();renderMemory();}if(next==='closet')renderCloset();window.scrollTo({top:0,behavior:'smooth'});}
 function renderAlternativeNotice(){
  const box=$('#alternativeNotice'),count=currentOutfit?.total;
  box.hidden=!alternativeRequested||count>1;
@@ -163,13 +176,13 @@ function renderCloset(){
  const groups=captureGroups(items);$('#captureGroups').innerHTML=groups.map(g=>{const signature=g.map(i=>i.id).sort().join('|');const confirmed=state.confirmedGroups.includes(signature);return `<div class="capture-box"><strong>비슷한 시간대에 촬영한 사진 ${g.length}장</strong>${g.map(i=>esc(i.name)).join(' · ')}<p class="small-text">${esc(g[0].capture.model)} · 첫 사진부터 10분 이내라는 임시 비교 기준입니다. 같은 기기 모델은 같은 기기라는 보장이 없고, 시간만으로 조명이나 보정값을 확정하지 않아요.</p><button class="secondary" data-group="${esc(signature)}" ${confirmed?'disabled':''}>${confirmed?'같은 장소·조명으로 확인했어요':'같은 장소·조명에서 찍었어요'}</button></div>`;}).join('');
 }
 function fillProfile(){fillRegionChoices('#profileLocations',regionIds(state));fillTemperatures('#profileForm',temperaturePreferences(state.profile));const selected=moodPreferences(state.profile);$$('#profileStyles input').forEach(el=>el.checked=selected.includes(el.value));const form=$('#profileForm');for(const key of ['routine','dressCode','walking','fit','exposure'])form.elements[key].value=state.profile[key]??'';form.elements.cooling.value=state.profile.cooling==null?'':String(state.profile.cooling);form.elements.heating.value=state.profile.heating==null?'':String(state.profile.heating);$$('#weekdayChecks input').forEach(i=>i.checked=state.profile.days.includes(Number(i.value)));surveyPicker.refresh();}
-function render(){resetURLs();$('#modeNotice').hidden=mode!=='demo';$('#modeNotice').textContent='예시 옷장 '+state.closet.length+'개로 체험 중이에요. 내 옷장과 따로 저장됩니다. 추천에 사용한 날씨는 아래 날씨 정보를 확인해주세요.';$('#modeButton').textContent=mode==='demo'?'내 옷장으로 돌아가기':'12개 옷장으로 체험하기';renderToday();renderCloset();$('#cloudConnection').innerHTML=renderCloudWardrobePanel(cloudController.getState());if(tab==='profile'){fillProfile();renderMemory();}}
+function render(){resetURLs();$('#modeNotice').hidden=mode!=='demo';$('#modeNotice').textContent='예시 옷장 '+state.closet.length+'개로 체험 중이에요. 내 옷장과 따로 저장됩니다. 추천에 사용한 날씨는 아래 날씨 정보를 확인해주세요.';$('#modeButton').textContent=mode==='demo'?'내 옷장으로 돌아가기':'12개 옷장으로 체험하기';renderToday();renderCloset();renderCloudConnection(cloudController.getState());if(tab==='profile'){fillProfile();renderMemory();}}
 async function toggleMode(){
  if(modeSwitchBusy)return;modeSwitchBusy=true;$('#modeButton').disabled=true;
  const next=mode==='real'?'demo':'real',previousMode=mode;
  try{const data=await readState(next==='demo'?'mvp-demo-v1':'real');const nextState=normalizeState(data||(next==='demo'?demoState():fresh()));nextState.holidayCalendar=state.holidayCalendar||nextState.holidayCalendar;
   if(!data)await writeState(next==='demo'?'mvp-demo-v1':'real',nextState);await writeState('mvp-active-mode',next);
-  clearRecommendation();cloudController.cancel();if($('#garmentDialog').open)$('#garmentDialog').close();mode=next;state=nextState;modifier='';skip=0;comfortReferenceIds=[];alternativeRequested=false;render();showTab('today');await refreshHolidays();$('#purchaseResult').innerHTML='<div class="empty-state"><h2>옷장을 기준으로 새롭게 비교해요.</h2><p>구매 후보 정보를 입력해 주세요.</p></div>';
+  clearRecommendation();cloudController.cancel();if($('#garmentDialog').open)$('#garmentDialog').close();mode=next;state=nextState;await configureCloudFromServer();modifier='';skip=0;comfortReferenceIds=[];alternativeRequested=false;render();showTab('today');await refreshHolidays();$('#purchaseResult').innerHTML='<div class="empty-state"><h2>옷장을 기준으로 새롭게 비교해요.</h2><p>구매 후보 정보를 입력해 주세요.</p></div>';
  }catch{if(mode===previousMode)toast('옷장을 전환하지 못했어요. 현재 옷장을 유지합니다.');else toast('옷장은 전환했지만 연결 정보를 갱신하지 못했어요.');}
  finally{modeSwitchBusy=false;$('#modeButton').disabled=false;}
 }
@@ -225,7 +238,7 @@ async function processPhoto(file){
 }
 $('#photoInput').addEventListener('change',choosePhoto);$('#cameraInput').addEventListener('change',choosePhoto);
 function readPhotoData(file){const clock=performance.now();operationLog.event('file_read_started',{bytes:file.size});return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{operationLog.event('file_read_finished',{elapsedMs:performance.now()-clock});resolve(String(reader.result).split(',')[1]);};reader.onerror=()=>{operationLog.event('file_read_failed',{errorName:reader.error?.name||'Error'});reject(new Error('사진을 읽지 못했어요.'));};reader.readAsDataURL(file);});}
-function updateCutoutButton(){const supported=draftPhoto&&draftPhoto.size<=10*1024*1024&&/^image\/(jpeg|png|webp)$/.test(draftPhoto.type);$('#removePhotoBackground').disabled=!supported||!draftReady||!!cutoutController||!!draftCutout;$('#photoViewControls').hidden=!draftCutout;$('#cancelCutout').hidden=!cutoutController;}
+function updateCutoutButton(){const supported=draftPhoto&&draftPhoto.size<=10*1024*1024&&/^image\/(jpeg|png|webp)$/.test(draftPhoto.type);$('#removePhotoBackground').disabled=apiConfig?.features?.cutout===false||!supported||!draftReady||!!cutoutController||!!draftCutout;$('#photoViewControls').hidden=!draftCutout;$('#cancelCutout').hidden=!cutoutController;if(apiConfig?.features?.cutout===false)$('#cutoutStatus').textContent='이 배포본은 원본 사진으로 등록해요. 배경 제거는 로컬 데모에서 사용할 수 있어요.';}
 function stopCutout(){cutoutController?.abort();cutoutController=null;clearInterval(cutoutTimer);cutoutTimer=null;$('#cancelCutout').hidden=true;$('#saveGarment').disabled=!!analysisController;}
 function renderPhotoPreview(){if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);photoPreviewUrl=null;const photo=photoView==='cutout'&&draftCutout?draftCutout.photo:draftPhoto;const box=$('#photoPreview');box.classList.toggle('cutout-preview',photoView==='cutout'&&!!draftCutout);box.innerHTML='';if(photo){photoPreviewUrl=URL.createObjectURL(photo);const img=document.createElement('img');img.src=photoPreviewUrl;img.alt=photoView==='cutout'?'배경을 제거한 옷 사진':'원본 옷 사진';box.append(img);}}
 $('#showOriginalPhoto').addEventListener('click',()=>{photoView='original';renderPhotoPreview();});
@@ -293,6 +306,7 @@ $('#purchaseForm').addEventListener('submit',async e=>{
  const fitMatch=candidate.category!=='shoe'&&candidate.fit&&candidate.fit===state.profile.fit;$('#purchaseResult').innerHTML='<h2>기존 옷과 이렇게 조합해볼 수 있어요.</h2><div class="outfit-grid">'+p.outfit.map(itemCard).join('')+'</div><p class="small-text">'+(fitMatch?'선택한 선호 핏과 같은 핏으로 입력됐어요.':'선호 핏과 실제 착용감을 비교해 주세요.')+' 사이즈·소재·실물 색은 구매 전에 확인해 주세요.</p>'+p.notices.map(n=>'<p class="warning">'+esc(n)+'</p>').join('')+'<p class="small-text">후보는 보유 옷장에 추가하지 않았어요. 이 조합은 구매 필요성을 확정하는 평가가 아닙니다.</p>';
 });
 async function init(){
+ const requestedTab=location.hash.slice(1)||'today';
  $('#garmentConfirmationFields').innerHTML=renderGarmentConfirmationFields();try{developerMode=localStorage.getItem('closet-display-mode-v22')==='developer';}catch{}renderDisplayMode();
  const styleCards=moodOptions.map(({id,label,description})=>`<label><input type="checkbox" name="moodPreferences" value="${esc(id)}"><span><b>${esc(label)}</b><small>${esc(description)}</small></span></label>`).join('');
  for(const id of ['#setupStyles','#profileStyles'])$(id).innerHTML=styleCards;
@@ -305,7 +319,7 @@ async function init(){
  $('#weekdayChecks').innerHTML=['일','월','화','수','목','금','토'].map((d,i)=>`<label><input type="checkbox" value="${i}">${d}</label>`).join('');
  $('#dateLabel').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
  setInterval(()=>{if($('#dateLabel').dataset.date!==todayKey()){modifier='';skip=0;comfortReferenceIds=[];$('#dateLabel').dataset.date=todayKey();$('#dateLabel').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());render();refreshHolidays();if(wantsSavedWeather())refreshWeather({quiet:true});}},60000);$('#dateLabel').dataset.date=todayKey();
- try{db=await openDB();mode=await readState('mvp-active-mode')==='demo'?'demo':'real';state=normalizeState(await readState(mode==='demo'?'mvp-demo-v1':'real')||(mode==='demo'?demoState():fresh()));fillRegionChoices('#places',regionIds(state));render();showTab(location.hash.slice(1)||'today');await refreshHolidays();await loadConfig();}catch{state=fresh();render();toast('브라우저 저장 기능을 사용할 수 없어요. 이 화면의 변경 내용이 저장되지 않을 수 있습니다.');}
+ try{db=await openDB();mode=await readState('mvp-active-mode')==='demo'?'demo':'real';state=normalizeState(await readState(mode==='demo'?'mvp-demo-v1':'real')||(mode==='demo'?demoState():fresh()));fillRegionChoices('#places',regionIds(state));render();showTab(requestedTab);await refreshHolidays();await loadConfig();if(requestedTab==='cloud'&&cloudUiEnabled)showTab('cloud');}catch{state=fresh();render();toast('브라우저 저장 기능을 사용할 수 없어요. 이 화면의 변경 내용이 저장되지 않을 수 있습니다.');}
 }
 let holidayPollTimer=null,holidayPollCount=0;
 function renderHolidayStatus(c=ctx()){
@@ -355,7 +369,7 @@ function renderLearning(){
  $('#feedbackOptions').innerHTML=selected?['ok','cold','hot'].map((v,i)=>`<button class="secondary" data-feeling="${v}">${['입어봤어요 · 괜찮았어요','입어봤어요 · 추웠어요','입어봤어요 · 더웠어요'][i]}</button>`).join(''):'';
 }
 async function loadConfig(){
- try{const r=await fetch('/api/config');if(!r.ok)throw new Error();apiConfig=await r.json();$('#cloudServerStatus').textContent=apiConfig.supabase?.enabled?'앱 서버의 클라우드 저장 대상: '+(apiConfig.supabase.url||'주소 미확인'):'앱 서버의 클라우드 저장은 아직 연결 전이에요. 현재 옷장은 이 브라우저에 보관됩니다.';for(const sel of ['#places','#setupLocations','#profileLocations'])fillRegionChoices(sel,regionChoosers.has(sel)?checkedRegions(sel):regionIds(state));$('#keyStatus').textContent=apiConfig.weatherKeyPresent?'.env에서 인증키를 읽었어요. 날씨를 가져오면 이용 권한도 확인할 수 있어요.':'.env 파일에 인증키를 넣고 저장해주세요. 인증키가 아직 비어 있어요.';if(wantsSavedWeather())await refreshWeather({quiet:true});}
+ try{const r=await fetch('/api/config');if(!r.ok)throw new Error();apiConfig=await r.json();updateCutoutButton();await configureCloudFromServer();$('#cloudServerStatus').textContent=apiConfig.supabase?.enabled?'앱 서버의 클라우드 저장 대상: '+(apiConfig.supabase.url||'주소 미확인'):'앱 서버의 클라우드 저장은 아직 연결 전이에요. 현재 옷장은 이 브라우저에 보관됩니다.';for(const sel of ['#places','#setupLocations','#profileLocations'])fillRegionChoices(sel,regionChoosers.has(sel)?checkedRegions(sel):regionIds(state));$('#keyStatus').textContent=apiConfig.weatherKeyPresent?'날씨 서비스가 설정되어 있어요. 지역을 선택하면 실제 예보를 확인할 수 있어요.':'.env 파일에 인증키를 넣고 저장해주세요. 인증키가 아직 비어 있어요.';if(wantsSavedWeather())await refreshWeather({quiet:true});}
  catch{$('#keyStatus').textContent='연결 설정을 읽지 못했어요. 화면을 다시 열어주세요.';}
 }
 const weatherVersion=w=>JSON.stringify([w?.requestedPlaceIds,w?.missingPlaces,(w?.forecasts||[w]).map(f=>[f?.placeId,f?.date,f?.min,f?.max,f?.rain,f?.snow,f?.hourly,f?.stale])]);

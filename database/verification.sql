@@ -100,12 +100,10 @@ begin
 end $$;
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('closet.test_a'),'role','authenticated','is_anonymous',true)::text,true);
 do $$ begin
- if exists(select 1 from public.wardrobe_garments) then raise exception 'ANONYMOUS_SIGNIN_READ_ACCEPTED'; end if;
- begin
-  insert into public.user_preferences(user_id) values(current_setting('closet.test_a')::uuid);
-  raise exception 'ANONYMOUS_SIGNIN_WRITE_ACCEPTED';
- exception when insufficient_privilege then null; end;
- insert into closet_verification_results values('anonymous sign-in denied',true);
+ if not exists(select 1 from public.wardrobe_garments where user_id=auth.uid()) then raise exception 'DEMO_OWN_READ_DENIED'; end if;
+ if exists(select 1 from public.wardrobe_garments where user_id<>auth.uid()) then raise exception 'DEMO_FOREIGN_READ'; end if;
+ update public.user_preferences set profile='{"demo":true}' where user_id=auth.uid();
+ insert into closet_verification_results values('authenticated demo identity owns only its rows',true);
 end $$;
 set local role anon;
 do $$ begin

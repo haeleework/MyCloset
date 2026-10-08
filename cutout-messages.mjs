@@ -1,0 +1,1 @@
+export const cutoutMessages={BUSY:'다른 사진의 배경을 제거하고 있어요. 잠시 후 다시 눌러주세요.',NO_FOREGROUND:'옷을 배경에서 분리하지 못했어요. 원본을 사용하거나 단색 배경에서 다시 찍어주세요.',PROCESSING_FAILED:'배경 제거를 완료하지 못했어요. 원본 사진으로 등록할 수 있어요.',TIMEOUT:'배경 제거 시간이 길어져 중단했어요. 원본으로 등록하거나 다시 시도해주세요.',CANCELLED:'배경 제거를 취소했어요.',INVALID_IMAGE:'배경 제거는 JPEG·PNG·WebP 사진을 지원해요.',IMAGE_TOO_LARGE:'배경 제거에는 10MB 이하 사진을 선택해주세요.'};

@@ -12,7 +12,7 @@ export function garmentMetadata(item){
  for(const key of fields){const value=item[key];if(value===null||typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value))clean[key]=value;else if(typeof value==='string'&&value.length<=200)clean[key]=value;else if(Array.isArray(value)&&value.length<=12&&value.every(v=>typeof v==='string'&&v.length<=80))clean[key]=[...value];}
  return clean;
 }
-export function createSupabaseWardrobeRepository({enabled=false,url='',publishableKey='',fetchImpl=globalThis.fetch,timeoutMs=8000}={}){
+export function createSupabaseWardrobeRepository({enabled=false,allowAnonymous=false,url='',publishableKey='',fetchImpl=globalThis.fetch,timeoutMs=8000}={}){
  let origin;
  if(enabled){
   try{const parsed=new URL(url);if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.pathname!=='/'||parsed.search||parsed.hash)throw new Error();origin=parsed.origin;}catch{throw new WardrobeRepositoryError('SUPABASE_CONFIGURATION');}
@@ -36,7 +36,7 @@ export function createSupabaseWardrobeRepository({enabled=false,url='',publishab
  }
  async function authenticate(accessToken){
   const user=await request('/auth/v1/user',accessToken);
-  if(!uuidPattern.test(user?.id??'')||user?.is_anonymous===true)throw new WardrobeRepositoryError('AUTH_REQUIRED',401);
+  if(!uuidPattern.test(user?.id??'')||user?.is_anonymous===true&&!allowAnonymous)throw new WardrobeRepositoryError('AUTH_REQUIRED',401);
   return {id:user.id};
  }
  function unpack(rows,user,requestedIds=null){
@@ -48,13 +48,13 @@ export function createSupabaseWardrobeRepository({enabled=false,url='',publishab
  }
  function validIds(ids){if(!Array.isArray(ids)||ids.length>500||ids.some(id=>typeof id!=='string'||!idPattern.test(id))||new Set(ids).size!==ids.length)throw new WardrobeRepositoryError('INVALID_GARMENT_IDS',400);return ids;}
  async function listGarments({accessToken}={}){
-  const user=await authenticate(accessToken),query=new URLSearchParams({select:'id,user_id,attributes',user_id:'eq.'+user.id,order:'id.asc',limit:'501'});
+  const user=await authenticate(accessToken),query=new URLSearchParams({select:'id,user_id,attributes',deleted_at:'is.null',user_id:'eq.'+user.id,order:'id.asc',limit:'501'});
   return {user,wardrobe:unpack(await request('/rest/v1/wardrobe_garments?'+query,accessToken),user)};
  }
  async function resolveGarments({accessToken,garmentIds}={}){
   const ids=validIds(garmentIds),user=await authenticate(accessToken);if(!ids.length)return {user,wardrobe:[]};
   // Bounded chunks avoid URL-length limits; ownership is checked in every row.
-  const rows=[];for(let offset=0;offset<ids.length;offset+=50){const group=ids.slice(offset,offset+50),query=new URLSearchParams({select:'id,user_id,attributes',user_id:'eq.'+user.id,id:'in.('+group.join(',')+')'});rows.push(...unpack(await request('/rest/v1/wardrobe_garments?'+query,accessToken),user,new Set(group)));}
+  const rows=[];for(let offset=0;offset<ids.length;offset+=50){const group=ids.slice(offset,offset+50),query=new URLSearchParams({select:'id,user_id,attributes',deleted_at:'is.null',user_id:'eq.'+user.id,id:'in.('+group.join(',')+')'});rows.push(...unpack(await request('/rest/v1/wardrobe_garments?'+query,accessToken),user,new Set(group)));}
   const byId=new Map(rows.map(item=>[item.id,item]));if(byId.size!==ids.length)throw new WardrobeRepositoryError('GARMENT_NOT_OWNED_OR_MISSING',403);
   return {user,wardrobe:ids.map(id=>byId.get(id))};
  }

@@ -168,5 +168,6 @@ test('panel escapes remote values and disables cloud controls in demo mode',()=>
   assert.doesNotMatch(html,/<img|<script|value="" autofocus/);
   assert.match(html,/&lt;img/);assert.match(html,/data-cloud-action="upload" disabled/);
   assert.match(html,/체험 옷장은 클라우드에 연결하지 않아요/);assert.match(html,/확인한 옷: 0개/);
-  assert.match(html,/사진과 분석 원문은 전송하지 않으며/);
+  assert.match(html,/사진·분석 결과·생활 설정·착용 기록/);
+  assert.match(html,/자동 전송하지 않습니다/);
 });

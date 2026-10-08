@@ -1,0 +1,17 @@
+node_modules
+.env*
+.git
+database
+docs
+*.test.mjs
+*.test.js
+*.log
+fixtures
+.weather-cache
+.holiday-cache
+.cutout-cache
+.operation-logs
+private
+backups
+exports
+uploads

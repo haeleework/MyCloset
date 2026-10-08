@@ -17,6 +17,8 @@ coverage/
 *.log
 *.jsonl
 local-verification.json
+live-verification.json
+live-test-identities.json
 # Local backups, personal data and workshop history
 private/
 saving-point*/
@@ -30,3 +32,13 @@ frontend-review-*
 작업일지.md
 .DS_Store
 Thumbs.db
+
+# Build and Supabase CLI local state
+/dist/
+/supabase/.temp/
+/database/supabase/.temp/
+
+.vercel
+.env*
+
+.vercelignore.local
