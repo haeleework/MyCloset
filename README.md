@@ -51,4 +51,4 @@ CLOSET_TEST_MODE는 모든 외부 통신을 막는 설정이 아닙니다. 자�
 
 **이 폴더의 내용만 저장소 최상위로 사용합니다.** 바깥 워크샵 폴더 전체를 업로드하지 않습니다. 구버전·작업일지·조사 자료·저장 지점·개인 사진·실제 계정 자료·비밀 설정은 포함하지 않았습니다. fixtures의 작은 사진은 EXIF 검사에 쓰는 합성 회색 이미지입니다.
 
-.gitignore는 비밀 설정, 설치 패키지, 캐시, 로그, 개인 백업, 검사 결과를 제외합니다. 웹사이트에서 파일을 직접 끌어 올리는 방식은 이 규칙을 자동으로 적용하지 않을 수 있으므로 Git이 표시하는 변경 목록을 확인하고 업로드합니다. 제외 파일을 강제로 추가하지 않습니다. GitHub 저장소는 [haeleework/MyCloset](https://github.com/haeleework/MyCloset)입니다. Vercel 연결은 아직 실행하지 않았습니다.
+.gitignore는 비밀 설정, 설치 패키지, 캐시, 로그, 개인 백업, 검사 결과를 제외합니다. 웹사이트에서 파일을 직접 끌어 올리는 방식은 이 규칙을 자동으로 적용하지 않을 수 있으므로 Git이 표시하는 변경 목록을 확인하고 업로드합니다. 제외 파일을 강제로 추가하지 않습니다. GitHub 저장소는 [haeleework/MyCloset](https://github.com/haeleework/MyCloset)입니다. Vercel 프로젝트 haelee/mycloset과 main 자동 배포 연결을 완료했습니다. 공개 주소는 https://mycloset-fawn.vercel.app 입니다.
