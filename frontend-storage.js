@@ -93,7 +93,7 @@ export function createCloudWardrobeController({fetchImpl=globalThis.fetch?.bind(
   const demoKey=()=> 'closet-demo-session-v25:'+config.url;
   function rememberDemo(){if(config?.authMode!=='demo'||!session)return;try{if(!demoSessionStore)throw Error();demoSessionStore.setItem(demoKey(),JSON.stringify(session));}catch{throw failure('DEMO_SESSION_STORAGE');}}
   async function request(url, options, signal) {
-    const response=await fetchImpl(url,{...options,signal,redirect:'error',cache:'no-store',credentials:'omit'});
+    const response=await fetchImpl(url,{...options,signal,redirect:'error',cache:'no-store',credentials:typeof url==='string'&&url.startsWith('/')&&!url.startsWith('//')?'same-origin':'omit'});
     if(!response.ok){
       let code;try{const detail=await response.json();code=detail.code||detail.error_code;}catch{}
       if(code==='anonymous_provider_disabled')throw failure('DEMO_IDENTITY_DISABLED');
