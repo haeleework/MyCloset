@@ -39,6 +39,12 @@ npm start
 
 CLOSET_TEST_MODE는 모든 외부 통신을 막는 설정이 아닙니다. 자동 검사에서는 별도의 네트워크 차단 도구를 사용합니다. 프로그램 설정값을 외부로 공개하지 마세요.
 
+## 발표자료
+
+- [신혜리 · MyCloset 발표자료 다운로드(PowerPoint)](docs/presentations/MyCloset_발표자료_신혜리.pptx?raw=true)
+
+다운로드한 파일을 PowerPoint에서 열어주세요. 사용자 제공 원본 자료입니다.
+
 ## 문서
 
 - [제품 요구사항](docs/PRD.md) · [기능 명세](docs/SPEC.md)
