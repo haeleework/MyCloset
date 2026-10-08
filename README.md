@@ -39,11 +39,14 @@ npm start
 
 CLOSET_TEST_MODE는 모든 외부 통신을 막는 설정이 아닙니다. 자동 검사에서는 별도의 네트워크 차단 도구를 사용합니다. 프로그램 설정값을 외부로 공개하지 마세요.
 
-## 발표자료
+## 발표자료와 시연 영상
 
-- [신혜리 · MyCloset 발표자료 다운로드(PowerPoint)](docs/presentations/MyCloset_발표자료_신혜리.pptx?raw=true)
+| 자료 | GitHub 파일 확인 | 원본 다운로드 |
+| --- | --- | --- |
+| 신혜리 · MyCloset 발표자료 (PowerPoint) | [파일 확인](https://github.com/haeleework/MyCloset/blob/main/docs/presentations/MyCloset-presentation.pptx) | [PPTX 다운로드](https://raw.githubusercontent.com/haeleework/MyCloset/main/docs/presentations/MyCloset-presentation.pptx) |
+| MyCloset 모바일 시연 영상 | [파일 확인](https://github.com/haeleework/MyCloset/blob/main/docs/presentations/MyCloset-demo.mp4) | [MP4 다운로드](https://raw.githubusercontent.com/haeleework/MyCloset/main/docs/presentations/MyCloset-demo.mp4) |
 
-다운로드한 파일을 PowerPoint에서 열어주세요. 사용자 제공 원본 자료입니다.
+두 파일 모두 사용자 제공 원본과 내용이 같습니다. 링크 호환성을 위해 저장소 파일명만 영문으로 정리했습니다. GitHub에서 미리보기가 나오지 않으면 원본 다운로드를 이용해주세요. 발표자료는 PowerPoint에서, 영상은 동영상 재생 앱에서 열 수 있습니다.
 
 ## 문서
 
